@@ -1,3 +1,4 @@
+#MODULE IMPORTS
 import numpy as np
 import os
 import glob
@@ -15,8 +16,8 @@ from sklearn.metrics import classification_report
 np.random.seed(2017)
 warnings.filterwarnings("ignore")
 
-# All pictures are in color (RGB), common sizes are 720 x 1280 pixels
 
+#CLASSES AND FUNCTIONS
 class ProcessImages(object):
 
     def __init__(self):
@@ -102,6 +103,7 @@ class Model(object):
         self.target = target
         self.features_shape = features.shape[1:]
         self.model = []
+        self.num_classes = target.shape[1]
 
     @staticmethod
     def convert_to_class(y_proba):
@@ -129,28 +131,54 @@ class Model(object):
         return train_features, test_features, train_target, test_target
 
     def initialize_model(self):
+
+        #CONVOLUTIONAL PART
+        # INFO:
+        # https://adeshpande3.github.io/adeshpande3.github.io/A-Beginner's-Guide-To-Understanding-Convolutional-Neural-Networks/
+        # https://adeshpande3.github.io/A-Beginner's-Guide-To-Understanding-Convolutional-Neural-Networks-Part-2/
+
+        # INITIALIZE MODEL
         model = Sequential()
 
+        #Zeropadding adds a row of zeros to top/bottom and column of zeros to left/right of features
         model.add(ZeroPadding2D((1,1), input_shape=self.features_shape, dim_ordering='th'))
+
+        # 2D CONVOLUTION: http://www.songho.ca/dsp/convolution/convolution.html#convolution_2d
+
+        # 1-st convolution: This convolution returns an output of (8x8) using a (3x3) filter
         model.add(Convolution2D(8, 3, 3, activation='relu', dim_ordering='th', init='lecun_uniform', subsample=(1, 1)))
+
+        #Add zero padding to convoluted layer
         model.add(ZeroPadding2D((1, 1), dim_ordering='th'))
+
+        # 2-nd convlution: Apply convolution again, with dropout and pool results (see info link)
         model.add(Convolution2D(8, 3, 3, activation='relu', dim_ordering='th', init='lecun_uniform', subsample=(1, 1)))
         model.add(Dropout(0.2))
         model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), dim_ordering='th'))
 
+        # 3-rd convolution: Same as above, different dimension
         model.add(ZeroPadding2D((1, 1), dim_ordering='th'))
         model.add(Convolution2D(16, 3, 3, activation='relu', dim_ordering='th', init='lecun_uniform', subsample=(1, 1)))
+
+        # 4-th convulation: Same as above
         model.add(ZeroPadding2D((1, 1), dim_ordering='th'))
         model.add(Convolution2D(16, 3, 3, activation='relu', dim_ordering='th', init='lecun_uniform', subsample=(1, 1)))
         model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), dim_ordering='th'))
         model.add(Dropout(0.2))
 
+        #NEURAL NETWORK PART
+
+        # THE 'INPUT' LAYER - output 32 nodes
         model.add(Flatten())
         model.add(Dense(32, activation='relu', init='lecun_uniform'))
         model.add(Dropout(0.4))
+
+        # THE 'HIDDEN' LAYER - output 32 nodes
         model.add(Dense(32, activation='relu', init='lecun_uniform'))
         model.add(Dropout(0.2))
-        model.add(Dense(8, activation='softmax'))
+
+        #THE 'OUTPUT' LAYER - output 8 nodes (number of classes)
+        model.add(Dense(self.num_classes, activation='softmax'))
 
         sgd = SGD(lr=1e-2, decay=1e-4, momentum=0.9, nesterov=False)
         model.compile(optimizer=sgd, loss='categorical_crossentropy')
@@ -187,7 +215,16 @@ class Model(object):
 
 
 
-#TESTING
+#DOCUMENTATION
+
+"""
+Dropout consists in randomly setting a fraction rate
+of input units to 0 at each update during training time,
+which helps prevent overfitting.
+
+"""
+
+#CODE
 process_image = ProcessImages()
 process_image.set_resize_dim(32, 32)
 x_train, y_train, image_ids = process_image.load_batch_images()
